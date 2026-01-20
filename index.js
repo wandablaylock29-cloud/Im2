@@ -30,7 +30,7 @@ import queries from './queries.js';
 // ══════════════════════════════════════════════════════════════════════════════
 
 // Replace with your bot token from @BotFather
-const BOT_TOKEN = '7897881067:AAGpF5mlRZ-MIHaCbqcT66hgoZ4jyQCt_dg';
+const BOT_TOKEN = '7897881067:AAEk1CL1e0qW_kQ9LSDu1gDL_rlXy5FKKiI';
 const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -103,8 +103,8 @@ class UserData {
             };
             fs.writeFileSync(this.userFile, JSON.stringify(saveData, null, 2), 'utf8');
             
-            // Save proxies to file
-            fs.writeFileSync(this.proxyFile, this.proxies.join('\n'), 'utf8);
+            // Save proxies to file - FIXED: Added missing closing quote
+            fs.writeFileSync(this.proxyFile, this.proxies.join('\n'), 'utf8');
         } catch (e) {
             console.error('Error saving user data:', e);
         }
