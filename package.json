@@ -1,17 +1,20 @@
 {
-  "name": "shopify-checkout-bot",
-  "version": "1.0.0",
+  "name": "shopify-telegram-bot",
+  "version": "2.0.0",
+  "description": "Shopify Card Checker Telegram Bot",
+  "main": "index.js",
   "type": "module",
   "scripts": {
-    "start": "node shopify-bot.js"
+    "start": "node index.js"
   },
   "dependencies": {
-    "node-fetch": "^3.3.0",
+    "node-telegram-bot-api": "^0.66.0",
+    "node-fetch": "^2.7.0",
     "tough-cookie": "^4.1.3",
-    "fetch-cookie": "^3.0.1",
+    "fetch-cookie": "^2.1.0",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
-    "puppeteer": "^21.0.0"
+    "puppeteer": "^23.2.1"
   },
   "engines": {
     "node": ">=18.0.0"
