@@ -30,7 +30,7 @@ import queries from './queries.js';
 // ══════════════════════════════════════════════════════════════════════════════
 
 // Replace with your bot token from @BotFather
-const BOT_TOKEN = '7897881067:AAFeb_cmeGrwMASOK9QT3w3jcXnRrvcHmAA';
+const BOT_TOKEN = '7897881067:AAGpF5mlRZ-MIHaCbqcT66hgoZ4jyQCt_dg';
 const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -39,15 +39,16 @@ const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 
 const dataDir = path.join(__dirname, 'data');
 const usersDir = path.join(dataDir, 'users');
-const shopsFile = path.join(dataDir, 'shops.txt');
+// shops.txt is in the same directory as this file (root of repository)
+const shopsFile = path.join(__dirname, 'shops.txt');
 
 // Ensure directories exist
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 if (!fs.existsSync(usersDir)) fs.mkdirSync(usersDir, { recursive: true });
-if (!fs.existsSync(shopsFile)) {
-    fs.writeFileSync(shopsFile, '# Add Shopify stores here\n# Format: domain.com or https://domain.com\n# One per line\n');
-    console.log('Created empty shops.txt file');
-}
+
+console.log(`Current directory: ${__dirname}`);
+console.log(`Shops file path: ${shopsFile}`);
+console.log(`Shops file exists: ${fs.existsSync(shopsFile)}`);
 
 // User data structure
 class UserData {
@@ -103,7 +104,7 @@ class UserData {
             fs.writeFileSync(this.userFile, JSON.stringify(saveData, null, 2), 'utf8');
             
             // Save proxies to file
-            fs.writeFileSync(this.proxyFile, this.proxies.join('\n'), 'utf8');
+            fs.writeFileSync(this.proxyFile, this.proxies.join('\n'), 'utf8);
         } catch (e) {
             console.error('Error saving user data:', e);
         }
@@ -169,17 +170,19 @@ class UserData {
     }
 }
 
-// Load shops - SIMPLIFIED VERSION
+// Load shops - SIMPLE AND DIRECT VERSION
 function loadShops() {
     try {
         console.log(`Loading shops from: ${shopsFile}`);
         
         if (!fs.existsSync(shopsFile)) {
-            console.log('shops.txt does not exist');
+            console.error('ERROR: shops.txt not found in directory!');
+            console.log('Files in directory:', fs.readdirSync(__dirname).join(', '));
             return [];
         }
         
         const data = fs.readFileSync(shopsFile, 'utf8');
+        console.log(`File content (first 200 chars): ${data.substring(0, 200)}...`);
         
         if (!data || data.trim() === '') {
             console.log('shops.txt is empty');
@@ -538,7 +541,7 @@ async function processFileCheck(chatId, userData, cards, messageId) {
     const totalCards = cards.length;
     
     if (shops.length === 0) {
-        await bot.sendMessage(chatId, '❌ No shops available! Add shops to shops.txt file.');
+        await bot.sendMessage(chatId, '❌ No shops available! Add shops to shops.txt file in the same directory.');
         return;
     }
     
@@ -710,7 +713,7 @@ bot.onText(/\/sh (.+)/, async (msg, match) => {
     
     const shops = loadShops();
     if (shops.length === 0) {
-        await bot.sendMessage(chatId, '❌ No shops available! Add shops to data/shops.txt');
+        await bot.sendMessage(chatId, '❌ No shops available! Add shops to shops.txt file in the same directory.');
         return;
     }
     
@@ -991,3 +994,9 @@ bot.on('error', (error) => {
 });
 
 console.log('🤖 Shopify Card Checker Bot is running...');
+console.log('Checking shops.txt file...');
+const shops = loadShops();
+console.log(`Loaded ${shops.length} shops`);
+if (shops.length > 0) {
+    console.log('First few shops:', shops.slice(0, 3));
+}
