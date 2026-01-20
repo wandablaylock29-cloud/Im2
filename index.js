@@ -10,7 +10,6 @@ import TelegramBot from 'node-telegram-bot-api';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { promises as fsPromises } from 'fs';
 
 // Get current directory
 const __filename = fileURLToPath(import.meta.url);
@@ -30,8 +29,7 @@ import queries from './queries.js';
 // ══════════════════════════════════════════════════════════════════════════════
 
 // Replace with your bot token from @BotFather
-const BOT_TOKEN = '7897881067:AAGpF5mlRZ-MIHaCbqcT66hgoZ4jyQCt_dg';
-const bot = new TelegramBot(BOT_TOKEN, { polling: true });
+const BOT_TOKEN = '7897881067:AAGtIALiwvv7ogvkLmhf-b3UF-WpLwxTrgw';
 
 // ══════════════════════════════════════════════════════════════════════════════
 //                              📊 DATABASE & STORAGE
@@ -39,16 +37,15 @@ const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 
 const dataDir = path.join(__dirname, 'data');
 const usersDir = path.join(dataDir, 'users');
-// shops.txt is in the same directory as this file (root of repository)
 const shopsFile = path.join(__dirname, 'shops.txt');
 
 // Ensure directories exist
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 if (!fs.existsSync(usersDir)) fs.mkdirSync(usersDir, { recursive: true });
 
-console.log(`Current directory: ${__dirname}`);
-console.log(`Shops file path: ${shopsFile}`);
-console.log(`Shops file exists: ${fs.existsSync(shopsFile)}`);
+console.log(`📁 Current directory: ${__dirname}`);
+console.log(`📄 Shops file path: ${shopsFile}`);
+console.log(`✅ Shops file exists: ${fs.existsSync(shopsFile)}`);
 
 // User data structure
 class UserData {
@@ -98,12 +95,12 @@ class UserData {
                 role: this.role,
                 allowed: this.allowed,
                 stats: this.stats,
-                history: this.history.slice(-50), // Keep last 50
+                history: this.history.slice(-50),
                 concurrentChecks: this.concurrentChecks
             };
             fs.writeFileSync(this.userFile, JSON.stringify(saveData, null, 2), 'utf8');
             
-            // Save proxies to file - FIXED: Added missing closing quote
+            // Save proxies to file
             fs.writeFileSync(this.proxyFile, this.proxies.join('\n'), 'utf8');
         } catch (e) {
             console.error('Error saving user data:', e);
@@ -170,22 +167,18 @@ class UserData {
     }
 }
 
-// Load shops - SIMPLE AND DIRECT VERSION
+// Load shops
 function loadShops() {
     try {
-        console.log(`Loading shops from: ${shopsFile}`);
-        
         if (!fs.existsSync(shopsFile)) {
-            console.error('ERROR: shops.txt not found in directory!');
-            console.log('Files in directory:', fs.readdirSync(__dirname).join(', '));
+            console.error('❌ ERROR: shops.txt not found!');
             return [];
         }
         
         const data = fs.readFileSync(shopsFile, 'utf8');
-        console.log(`File content (first 200 chars): ${data.substring(0, 200)}...`);
         
         if (!data || data.trim() === '') {
-            console.log('shops.txt is empty');
+            console.log('ℹ️ shops.txt is empty');
             return [];
         }
         
@@ -195,30 +188,23 @@ function loadShops() {
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
             
-            // Skip empty lines and comments
-            if (!line || line.startsWith('#')) {
-                continue;
-            }
+            if (!line || line.startsWith('#')) continue;
             
-            // Remove any inline comments
             const cleanLine = line.split('#')[0].trim();
             
             if (cleanLine) {
-                // If line doesn't start with http:// or https://, add https://
                 let shopUrl = cleanLine;
                 if (!shopUrl.startsWith('http://') && !shopUrl.startsWith('https://')) {
                     shopUrl = `https://${shopUrl}`;
                 }
-                
                 shops.push(shopUrl);
-                console.log(`Added shop ${i+1}: ${shopUrl}`);
             }
         }
         
-        console.log(`Total shops loaded: ${shops.length}`);
+        console.log(`✅ Loaded ${shops.length} shops`);
         return shops;
     } catch (error) {
-        console.error('Error loading shops:', error);
+        console.error('❌ Error loading shops:', error);
         return [];
     }
 }
@@ -250,7 +236,6 @@ function getBINInfo(cardNumber) {
         level: 'UNKNOWN' 
     };
     
-    // Add country based on first digits
     if (cardNumber.startsWith('4')) binInfo.country = '🇺🇸 USA';
     else if (cardNumber.startsWith('5')) binInfo.country = '🇺🇸 USA';
     else if (cardNumber.startsWith('3')) binInfo.country = '🇺🇸 USA';
@@ -402,7 +387,6 @@ async function checkCardOnShop(card, shopUrl, proxy = null, userData) {
         };
         
     } catch (error) {
-        // If URL parsing fails, use shopUrl as-is
         const shopDomain = shopUrl.replace(/^https?:\/\//, '').split('/')[0];
         return {
             status: 'ERROR',
@@ -561,10 +545,7 @@ async function processFileCheck(chatId, userData, cards, messageId) {
     const startTime = Date.now();
     activeChecks.set(sessionId, { running: true, chatId });
     
-    // Initial progress message
     let progressMessageId = messageId;
-    
-    // Process cards in batches
     const batchSize = Math.min(userData.concurrentChecks, 10);
     
     for (let i = 0; i < totalCards; i += batchSize) {
@@ -578,29 +559,24 @@ async function processFileCheck(chatId, userData, cards, messageId) {
         for (const result of results) {
             sessionStats.completed++;
             
-            // Update stats
             if (result.status === 'CHARGED') sessionStats.charged++;
             else if (result.status === '3DS') sessionStats['3ds']++;
             else if (result.status === 'DECLINED') sessionStats.declined++;
             else sessionStats.error++;
             
-            // Update user stats
             userData.addCheck(result);
             
-            // Update global stats
             globalStats.totalChecks++;
             if (result.status === 'CHARGED') globalStats.charged++;
             else if (result.status === '3DS') globalStats['3ds']++;
             else if (result.status === 'DECLINED') globalStats.declined++;
             else globalStats.error++;
             
-            // Send charged results immediately
             if (result.status === 'CHARGED') {
                 await bot.sendMessage(chatId, formatChargedResult(result), { parse_mode: 'Markdown' });
             }
         }
         
-        // Update progress every 10 cards or every 5 seconds
         if (sessionStats.completed % 10 === 0 || Date.now() - startTime > 5000) {
             progressMessageId = await sendProgressUpdate(
                 chatId, 
@@ -613,11 +589,9 @@ async function processFileCheck(chatId, userData, cards, messageId) {
             );
         }
         
-        // Small delay between batches
         await new Promise(resolve => setTimeout(resolve, 100));
     }
     
-    // Final update
     await sendProgressUpdate(
         chatId, 
         progressMessageId, 
@@ -628,7 +602,6 @@ async function processFileCheck(chatId, userData, cards, messageId) {
         userData
     );
     
-    // Final summary
     const finalMessage = `✅ CHECK COMPLETE!
 ━━━━━━━━━━━━━━━━━━━━━━
 📊 Results:
@@ -645,17 +618,55 @@ async function processFileCheck(chatId, userData, cards, messageId) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+//                              🤖 TELEGRAM BOT INITIALIZATION
+// ══════════════════════════════════════════════════════════════════════════════
+
+async function initializeBot() {
+    console.log('🤖 Initializing Telegram Bot...');
+    
+    try {
+        // Create bot instance WITHOUT auto-polling
+        const bot = new TelegramBot(BOT_TOKEN);
+        
+        // Test the token by making a simple API call
+        console.log('🔍 Testing bot token...');
+        const me = await bot.getMe();
+        console.log(`✅ Bot initialized: @${me.username} (${me.first_name})`);
+        
+        // Now start polling manually
+        bot.startPolling({
+            polling: {
+                interval: 300,
+                timeout: 10,
+                limit: 100
+            }
+        });
+        
+        console.log('✅ Bot polling started');
+        return bot;
+    } catch (error) {
+        console.error('❌ Failed to initialize bot:', error.message);
+        if (error.response && error.response.statusCode === 401) {
+            console.error('❌ Bot token is invalid or has been revoked!');
+            console.error('Please get a new token from @BotFather on Telegram');
+        }
+        process.exit(1);
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 //                              🤖 TELEGRAM BOT HANDLERS
 // ══════════════════════════════════════════════════════════════════════════════
 
-// /start command
-bot.onText(/\/start/, async (msg) => {
-    const chatId = msg.chat.id;
-    const userId = msg.from.id;
-    const userData = new UserData(userId);
-    const shops = loadShops();
-    
-    const message = `🛒 SHOPIFY CARD CHECKER BOT 🛒
+async function setupBotHandlers(bot) {
+    // /start command
+    bot.onText(/\/start/, async (msg) => {
+        const chatId = msg.chat.id;
+        const userId = msg.from.id;
+        const userData = new UserData(userId);
+        const shops = loadShops();
+        
+        const message = `🛒 SHOPIFY CARD CHECKER BOT 🛒
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Hello ${msg.from.first_name || 'User'}! 👋
@@ -689,143 +700,140 @@ cc|mm|yyyy|cvv or cc|mm|yy|cvv
 • Shops: ${shops.length}
 • Proxies: ${userData.proxies.length}
 • Max cards/file: 5000`;
-    
-    await bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
-});
+        
+        await bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
+    });
 
-// /sh command - single card check
-bot.onText(/\/sh (.+)/, async (msg, match) => {
-    const chatId = msg.chat.id;
-    const userId = msg.from.id;
-    const userData = new UserData(userId);
-    
-    if (!userData.allowed) {
-        await bot.sendMessage(chatId, '❌ You are not allowed to use this bot!');
-        return;
-    }
-    
-    const cardString = match[1].trim();
-    
-    if (isCardExpired(cardString)) {
-        await bot.sendMessage(chatId, '❌ Card is expired!');
-        return;
-    }
-    
-    const shops = loadShops();
-    if (shops.length === 0) {
-        await bot.sendMessage(chatId, '❌ No shops available! Add shops to shops.txt file in the same directory.');
-        return;
-    }
-    
-    const checkingMsg = await bot.sendMessage(chatId, '⏳ Checking card...', { parse_mode: 'Markdown' });
-    
-    try {
-        const result = await checkCardWithRetry(cardString, shops, userData);
+    // /sh command - single card check
+    bot.onText(/\/sh (.+)/, async (msg, match) => {
+        const chatId = msg.chat.id;
+        const userId = msg.from.id;
+        const userData = new UserData(userId);
         
-        // Update stats
-        userData.addCheck(result);
-        globalStats.totalChecks++;
-        if (result.status === 'CHARGED') globalStats.charged++;
-        else if (result.status === '3DS') globalStats['3ds']++;
-        else if (result.status === 'DECLINED') globalStats.declined++;
-        else globalStats.error++;
-        
-        // Send result
-        if (result.status === 'CHARGED') {
-            await bot.editMessageText(formatChargedResult(result), {
-                chat_id: chatId,
-                message_id: checkingMsg.message_id,
-                parse_mode: 'Markdown'
-            });
-        } else {
-            await bot.editMessageText(formatCheckResult(result), {
-                chat_id: chatId,
-                message_id: checkingMsg.message_id,
-                parse_mode: 'Markdown'
-            });
-        }
-    } catch (error) {
-        await bot.editMessageText(`❌ Error: ${error.message}`, {
-            chat_id: chatId,
-            message_id: checkingMsg.message_id
-        });
-    }
-});
-
-// File handler
-const fileHandlers = new Map();
-
-bot.on('document', async (msg) => {
-    const chatId = msg.chat.id;
-    const userId = msg.from.id;
-    const userData = new UserData(userId);
-    
-    if (!userData.allowed) {
-        await bot.sendMessage(chatId, '❌ You are not allowed to use this bot!');
-        return;
-    }
-    
-    if (msg.document.mime_type === 'text/plain' || msg.document.file_name.endsWith('.txt')) {
-        fileHandlers.set(chatId, {
-            fileId: msg.document.file_id,
-            fileName: msg.document.file_name,
-            timestamp: Date.now()
-        });
-        
-        await bot.sendMessage(chatId, '📄 File received! Type /fsh to start checking.', { parse_mode: 'Markdown' });
-    }
-});
-
-// /fsh command - process file
-bot.onText(/\/fsh/, async (msg) => {
-    const chatId = msg.chat.id;
-    const userId = msg.from.id;
-    const userData = new UserData(userId);
-    
-    if (!userData.allowed) {
-        await bot.sendMessage(chatId, '❌ You are not allowed to use this bot!');
-        return;
-    }
-    
-    const fileHandler = fileHandlers.get(chatId);
-    if (!fileHandler || Date.now() - fileHandler.timestamp > 300000) { // 5 minutes
-        await bot.sendMessage(chatId, '❌ No recent file found! Send a .txt file first.');
-        return;
-    }
-    
-    try {
-        const fileLink = await bot.getFileLink(fileHandler.fileId);
-        const response = await fetch(fileLink);
-        const fileContent = await response.text();
-        
-        const cards = fileContent.split('\n')
-            .map(line => line.trim())
-            .filter(line => line.includes('|') && line.split('|').length >= 4)
-            .filter(card => !isCardExpired(card));
-        
-        if (cards.length === 0) {
-            await bot.sendMessage(chatId, '❌ No valid cards found in file!');
+        if (!userData.allowed) {
+            await bot.sendMessage(chatId, '❌ You are not allowed to use this bot!');
             return;
         }
         
-        const startMsg = await bot.sendMessage(chatId, `📊 Found ${cards.length} valid cards. Starting check...`, { parse_mode: 'Markdown' });
+        const cardString = match[1].trim();
         
-        // Process file
-        await processFileCheck(chatId, userData, cards, startMsg.message_id);
+        if (isCardExpired(cardString)) {
+            await bot.sendMessage(chatId, '❌ Card is expired!');
+            return;
+        }
         
-        fileHandlers.delete(chatId);
-    } catch (error) {
-        await bot.sendMessage(chatId, `❌ Error processing file: ${error.message}`);
-    }
-});
+        const shops = loadShops();
+        if (shops.length === 0) {
+            await bot.sendMessage(chatId, '❌ No shops available! Add shops to shops.txt file in the same directory.');
+            return;
+        }
+        
+        const checkingMsg = await bot.sendMessage(chatId, '⏳ Checking card...', { parse_mode: 'Markdown' });
+        
+        try {
+            const result = await checkCardWithRetry(cardString, shops, userData);
+            
+            userData.addCheck(result);
+            globalStats.totalChecks++;
+            if (result.status === 'CHARGED') globalStats.charged++;
+            else if (result.status === '3DS') globalStats['3ds']++;
+            else if (result.status === 'DECLINED') globalStats.declined++;
+            else globalStats.error++;
+            
+            if (result.status === 'CHARGED') {
+                await bot.editMessageText(formatChargedResult(result), {
+                    chat_id: chatId,
+                    message_id: checkingMsg.message_id,
+                    parse_mode: 'Markdown'
+                });
+            } else {
+                await bot.editMessageText(formatCheckResult(result), {
+                    chat_id: chatId,
+                    message_id: checkingMsg.message_id,
+                    parse_mode: 'Markdown'
+                });
+            }
+        } catch (error) {
+            await bot.editMessageText(`❌ Error: ${error.message}`, {
+                chat_id: chatId,
+                message_id: checkingMsg.message_id
+            });
+        }
+    });
 
-// /myproxy command
-bot.onText(/\/myproxy/, async (msg) => {
-    const chatId = msg.chat.id;
-    const userId = msg.from.id;
-    const userData = new UserData(userId);
-    
-    const message = `🔌 Your Proxies
+    // File handler
+    const fileHandlers = new Map();
+
+    bot.on('document', async (msg) => {
+        const chatId = msg.chat.id;
+        const userId = msg.from.id;
+        const userData = new UserData(userId);
+        
+        if (!userData.allowed) {
+            await bot.sendMessage(chatId, '❌ You are not allowed to use this bot!');
+            return;
+        }
+        
+        if (msg.document.mime_type === 'text/plain' || msg.document.file_name.endsWith('.txt')) {
+            fileHandlers.set(chatId, {
+                fileId: msg.document.file_id,
+                fileName: msg.document.file_name,
+                timestamp: Date.now()
+            });
+            
+            await bot.sendMessage(chatId, '📄 File received! Type /fsh to start checking.', { parse_mode: 'Markdown' });
+        }
+    });
+
+    // /fsh command - process file
+    bot.onText(/\/fsh/, async (msg) => {
+        const chatId = msg.chat.id;
+        const userId = msg.from.id;
+        const userData = new UserData(userId);
+        
+        if (!userData.allowed) {
+            await bot.sendMessage(chatId, '❌ You are not allowed to use this bot!');
+            return;
+        }
+        
+        const fileHandler = fileHandlers.get(chatId);
+        if (!fileHandler || Date.now() - fileHandler.timestamp > 300000) {
+            await bot.sendMessage(chatId, '❌ No recent file found! Send a .txt file first.');
+            return;
+        }
+        
+        try {
+            const fileLink = await bot.getFileLink(fileHandler.fileId);
+            const response = await fetch(fileLink);
+            const fileContent = await response.text();
+            
+            const cards = fileContent.split('\n')
+                .map(line => line.trim())
+                .filter(line => line.includes('|') && line.split('|').length >= 4)
+                .filter(card => !isCardExpired(card));
+            
+            if (cards.length === 0) {
+                await bot.sendMessage(chatId, '❌ No valid cards found in file!');
+                return;
+            }
+            
+            const startMsg = await bot.sendMessage(chatId, `📊 Found ${cards.length} valid cards. Starting check...`, { parse_mode: 'Markdown' });
+            
+            await processFileCheck(chatId, userData, cards, startMsg.message_id);
+            
+            fileHandlers.delete(chatId);
+        } catch (error) {
+            await bot.sendMessage(chatId, `❌ Error processing file: ${error.message}`);
+        }
+    });
+
+    // /myproxy command
+    bot.onText(/\/myproxy/, async (msg) => {
+        const chatId = msg.chat.id;
+        const userId = msg.from.id;
+        const userData = new UserData(userId);
+        
+        const message = `🔌 Your Proxies
 ━━━━━━━━━━━━━━━━━━━━━━
 • Proxies: ${userData.proxies.length} ${userData.proxies.length > 0 ? '(custom)' : '(none)'}
 • Concurrent: ${userData.concurrentChecks} (auto)
@@ -838,49 +846,49 @@ Commands:
 
 Example:
 /myproxyadd dc.decodo.com:10000:user:pass`;
-    
-    await bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
-});
+        
+        await bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
+    });
 
-// /myproxyadd command
-bot.onText(/\/myproxyadd (.+)/s, async (msg, match) => {
-    const chatId = msg.chat.id;
-    const userId = msg.from.id;
-    const userData = new UserData(userId);
-    
-    const proxiesText = match[1].trim();
-    const added = userData.addProxies(proxiesText);
-    
-    await bot.sendMessage(chatId, `✅ Added ${added} proxies. Total: ${userData.proxies.length}`, { parse_mode: 'Markdown' });
-});
+    // /myproxyadd command
+    bot.onText(/\/myproxyadd (.+)/s, async (msg, match) => {
+        const chatId = msg.chat.id;
+        const userId = msg.from.id;
+        const userData = new UserData(userId);
+        
+        const proxiesText = match[1].trim();
+        const added = userData.addProxies(proxiesText);
+        
+        await bot.sendMessage(chatId, `✅ Added ${added} proxies. Total: ${userData.proxies.length}`, { parse_mode: 'Markdown' });
+    });
 
-// /myproxy reload
-bot.onText(/\/myproxy reload/, async (msg) => {
-    const chatId = msg.chat.id;
-    const userId = msg.from.id;
-    const userData = new UserData(userId);
-    
-    const count = userData.reloadProxies();
-    await bot.sendMessage(chatId, `✅ Reloaded ${count} proxies from database.`, { parse_mode: 'Markdown' });
-});
+    // /myproxy reload
+    bot.onText(/\/myproxy reload/, async (msg) => {
+        const chatId = msg.chat.id;
+        const userId = msg.from.id;
+        const userData = new UserData(userId);
+        
+        const count = userData.reloadProxies();
+        await bot.sendMessage(chatId, `✅ Reloaded ${count} proxies from database.`, { parse_mode: 'Markdown' });
+    });
 
-// /myproxy clear
-bot.onText(/\/myproxy clear/, async (msg) => {
-    const chatId = msg.chat.id;
-    const userId = msg.from.id;
-    const userData = new UserData(userId);
-    
-    const count = userData.clearProxies();
-    await bot.sendMessage(chatId, `✅ Cleared ${count} proxies.`, { parse_mode: 'Markdown' });
-});
+    // /myproxy clear
+    bot.onText(/\/myproxy clear/, async (msg) => {
+        const chatId = msg.chat.id;
+        const userId = msg.from.id;
+        const userData = new UserData(userId);
+        
+        const count = userData.clearProxies();
+        await bot.sendMessage(chatId, `✅ Cleared ${count} proxies.`, { parse_mode: 'Markdown' });
+    });
 
-// /mystats command
-bot.onText(/\/mystats/, async (msg) => {
-    const chatId = msg.chat.id;
-    const userId = msg.from.id;
-    const userData = new UserData(userId);
-    
-    const message = `📊 Your Statistics
+    // /mystats command
+    bot.onText(/\/mystats/, async (msg) => {
+        const chatId = msg.chat.id;
+        const userId = msg.from.id;
+        const userData = new UserData(userId);
+        
+        const message = `📊 Your Statistics
 ━━━━━━━━━━━━━━━━━━━━━━
 • Total Checks: ${userData.stats.totalChecks}
 • ✅ Charged: ${userData.stats.charged}
@@ -890,65 +898,64 @@ bot.onText(/\/mystats/, async (msg) => {
 
 • Proxies: ${userData.proxies.length}
 • Last Check: ${userData.stats.lastCheck ? new Date(userData.stats.lastCheck).toLocaleString() : 'Never'}`;
-    
-    await bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
-});
+        
+        await bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
+    });
 
-// /history command
-bot.onText(/\/history/, async (msg) => {
-    const chatId = msg.chat.id;
-    const userId = msg.from.id;
-    const userData = new UserData(userId);
-    
-    if (userData.history.length === 0) {
-        await bot.sendMessage(chatId, '📜 No history found.');
-        return;
-    }
-    
-    let message = '📜 Last 10 Checks\n━━━━━━━━━━━━━━━━━━━━━━\n\n';
-    const recentHistory = userData.history.slice(-10).reverse();
-    
-    for (const check of recentHistory) {
-        const icon = check.status === 'CHARGED' ? '✅' : 
-                     check.status === '3DS' ? '🔐' : 
-                     check.status === 'DECLINED' ? '❌' : '⚠️';
-        const time = new Date(check.timestamp).toLocaleTimeString();
-        message += `${icon} ${time} - ${check.card} - ${check.status}\n`;
-        message += `   Shop: ${check.shop} | Amount: ${check.amount}\n\n`;
-    }
-    
-    await bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
-});
+    // /history command
+    bot.onText(/\/history/, async (msg) => {
+        const chatId = msg.chat.id;
+        const userId = msg.from.id;
+        const userData = new UserData(userId);
+        
+        if (userData.history.length === 0) {
+            await bot.sendMessage(chatId, '📜 No history found.');
+            return;
+        }
+        
+        let message = '📜 Last 10 Checks\n━━━━━━━━━━━━━━━━━━━━━━\n\n';
+        const recentHistory = userData.history.slice(-10).reverse();
+        
+        for (const check of recentHistory) {
+            const icon = check.status === 'CHARGED' ? '✅' : 
+                         check.status === '3DS' ? '🔐' : 
+                         check.status === 'DECLINED' ? '❌' : '⚠️';
+            const time = new Date(check.timestamp).toLocaleTimeString();
+            message += `${icon} ${time} - ${check.card} - ${check.status}\n`;
+            message += `   Shop: ${check.shop} | Amount: ${check.amount}\n\n`;
+        }
+        
+        await bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
+    });
 
-// /status command
-bot.onText(/\/status/, async (msg) => {
-    const chatId = msg.chat.id;
-    const shops = loadShops();
-    
-    // Count active users
-    const userFiles = fs.readdirSync(usersDir).filter(f => f.endsWith('.json'));
-    globalStats.activeUsers = userFiles.length;
-    globalStats.shops = shops.length;
-    
-    const message = `🤖 Bot Status
+    // /status command
+    bot.onText(/\/status/, async (msg) => {
+        const chatId = msg.chat.id;
+        const shops = loadShops();
+        
+        const userFiles = fs.readdirSync(usersDir).filter(f => f.endsWith('.json'));
+        globalStats.activeUsers = userFiles.length;
+        globalStats.shops = shops.length;
+        
+        const message = `🤖 Bot Status
 ━━━━━━━━━━━━━━━━━━━━━━
 • Uptime: ${formatTime(process.uptime())}
 • Active Checks: ${Array.from(activeChecks.values()).filter(s => s.running).length}
 • Total Users: ${userFiles.length}
 • Available Shops: ${shops.length}
 • Active Proxies: ${Array.from(new Set(userFiles.flatMap(f => {
-    const proxyFile = path.join(usersDir, f.replace('.json', '_proxies.txt'));
-    return fs.existsSync(proxyFile) ? fs.readFileSync(proxyFile, 'utf8').split('\n').filter(p => p) : [];
-}))).length}`;
-    
-    await bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
-});
+            const proxyFile = path.join(usersDir, f.replace('.json', '_proxies.txt'));
+            return fs.existsSync(proxyFile) ? fs.readFileSync(proxyFile, 'utf8').split('\n').filter(p => p) : [];
+        }))).length}`;
+        
+        await bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
+    });
 
-// /stats command
-bot.onText(/\/stats/, async (msg) => {
-    const chatId = msg.chat.id;
-    
-    const message = `📊 Global Statistics
+    // /stats command
+    bot.onText(/\/stats/, async (msg) => {
+        const chatId = msg.chat.id;
+        
+        const message = `📊 Global Statistics
 ━━━━━━━━━━━━━━━━━━━━━━
 • Total Checks: ${globalStats.totalChecks}
 • ✅ Charged: ${globalStats.charged}
@@ -959,44 +966,71 @@ bot.onText(/\/stats/, async (msg) => {
 • Success Rate: ${globalStats.totalChecks > 0 ? ((globalStats.charged / globalStats.totalChecks) * 100).toFixed(2) : 0}%
 • Active Users: ${globalStats.activeUsers}
 • Available Shops: ${globalStats.shops}`;
-    
-    await bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
-});
+        
+        await bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
+    });
 
-// /stop command
-bot.onText(/\/stop/, async (msg) => {
-    const chatId = msg.chat.id;
-    const userId = msg.from.id;
-    
-    // Find and stop user's active sessions
-    let stopped = 0;
-    for (const [sessionId, session] of activeChecks.entries()) {
-        if (session.chatId === chatId && session.running) {
-            session.running = false;
-            stopped++;
+    // /stop command
+    bot.onText(/\/stop/, async (msg) => {
+        const chatId = msg.chat.id;
+        const userId = msg.from.id;
+        
+        let stopped = 0;
+        for (const [sessionId, session] of activeChecks.entries()) {
+            if (session.chatId === chatId && session.running) {
+                session.running = false;
+                stopped++;
+            }
         }
-    }
-    
-    if (stopped > 0) {
-        await bot.sendMessage(chatId, `🛑 Stopped ${stopped} running check(s).`);
-    } else {
-        await bot.sendMessage(chatId, 'ℹ️ No active checks to stop.');
-    }
-});
+        
+        if (stopped > 0) {
+            await bot.sendMessage(chatId, `🛑 Stopped ${stopped} running check(s).`);
+        } else {
+            await bot.sendMessage(chatId, 'ℹ️ No active checks to stop.');
+        }
+    });
 
-// Error handling
-bot.on('polling_error', (error) => {
-    console.error('Polling error:', error);
-});
+    // Error handling
+    bot.on('polling_error', (error) => {
+        console.error('Polling error:', error.message);
+        // Don't exit, just log the error
+    });
 
-bot.on('error', (error) => {
-    console.error('Bot error:', error);
-});
-
-console.log('🤖 Shopify Card Checker Bot is running...');
-console.log('Checking shops.txt file...');
-const shops = loadShops();
-console.log(`Loaded ${shops.length} shops`);
-if (shops.length > 0) {
-    console.log('First few shops:', shops.slice(0, 3));
+    bot.on('error', (error) => {
+        console.error('Bot error:', error.message);
+    });
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+//                              🚀 MAIN STARTUP
+// ══════════════════════════════════════════════════════════════════════════════
+
+async function main() {
+    console.log('🚀 Starting Shopify Card Checker Bot...');
+    
+    // Load shops first
+    const shops = loadShops();
+    console.log(`📊 Loaded ${shops.length} shops from shops.txt`);
+    
+    // Initialize bot
+    const bot = await initializeBot();
+    
+    // Setup bot handlers
+    await setupBotHandlers(bot);
+    
+    console.log('✅ Bot is ready and listening for commands!');
+    console.log('📱 Use /start in Telegram to begin');
+    
+    // Keep the process alive
+    process.on('SIGINT', () => {
+        console.log('👋 Shutting down bot...');
+        bot.stopPolling();
+        process.exit(0);
+    });
+}
+
+// Start the bot
+main().catch(error => {
+    console.error('❌ Fatal error during startup:', error);
+    process.exit(1);
+});
