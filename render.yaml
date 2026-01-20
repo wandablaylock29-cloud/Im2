@@ -1,0 +1,9 @@
+services:
+  - type: worker
+    name: shopify-checkout-bot
+    env: node
+    buildCommand: yarn install
+    startCommand: node shopify-bot.js
+    envVars:
+      - key: NODE_VERSION
+        value: 18.x
