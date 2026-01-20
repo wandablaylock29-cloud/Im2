@@ -1,0 +1,19 @@
+{
+  "name": "shopify-checkout-bot",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node shopify-bot.js"
+  },
+  "dependencies": {
+    "node-fetch": "^3.3.0",
+    "tough-cookie": "^4.1.3",
+    "fetch-cookie": "^3.0.1",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "puppeteer": "^21.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
