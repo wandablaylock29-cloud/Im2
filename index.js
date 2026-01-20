@@ -30,7 +30,7 @@ import queries from './queries.js';
 // ══════════════════════════════════════════════════════════════════════════════
 
 // Replace with your bot token from @BotFather
-const BOT_TOKEN = '7897881067:AAEk1CL1e0qW_kQ9LSDu1gDL_rlXy5FKKiI';
+const BOT_TOKEN = '7897881067:AAFeb_cmeGrwMASOK9QT3w3jcXnRrvcHmAA';
 const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -44,7 +44,10 @@ const shopsFile = path.join(dataDir, 'shops.txt');
 // Ensure directories exist
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 if (!fs.existsSync(usersDir)) fs.mkdirSync(usersDir, { recursive: true });
-if (!fs.existsSync(shopsFile)) fs.writeFileSync(shopsFile, '');
+if (!fs.existsSync(shopsFile)) {
+    fs.writeFileSync(shopsFile, '# Add Shopify stores here\n# Format: domain.com or https://domain.com\n# One per line\n');
+    console.log('Created empty shops.txt file');
+}
 
 // User data structure
 class UserData {
@@ -166,41 +169,53 @@ class UserData {
     }
 }
 
-// Load shops
+// Load shops - SIMPLIFIED VERSION
 function loadShops() {
     try {
-        const data = fs.readFileSync(shopsFile, 'utf8');
-        const lines = data.split('\n');
-        const shops = new Set();
+        console.log(`Loading shops from: ${shopsFile}`);
         
-        for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed || trimmed.startsWith('#')) continue;
+        if (!fs.existsSync(shopsFile)) {
+            console.log('shops.txt does not exist');
+            return [];
+        }
+        
+        const data = fs.readFileSync(shopsFile, 'utf8');
+        
+        if (!data || data.trim() === '') {
+            console.log('shops.txt is empty');
+            return [];
+        }
+        
+        const lines = data.split('\n');
+        const shops = [];
+        
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
             
-            let domain = null;
-            const firstPart = trimmed.split(/\s*\|\s*|\t+|\s\s+/)[0].trim();
-            
-            if (firstPart.startsWith('http://') || firstPart.startsWith('https://')) {
-                const temp = firstPart.replace(/^https?:\/\//, '');
-                const match = temp.match(/^([a-zA-Z0-9][-a-zA-Z0-9.]*[a-zA-Z0-9])(?::\d+)?(?:\/|:|$)/);
-                domain = match ? match[1] : temp.split('/')[0].split(':')[0];
-            } else {
-                domain = firstPart.split(':')[0].trim();
+            // Skip empty lines and comments
+            if (!line || line.startsWith('#')) {
+                continue;
             }
             
-            if (domain) {
-                domain = domain.toLowerCase().trim();
-                if (domain.startsWith('www.')) domain = domain.substring(4);
-                domain = domain.replace(/\.+$/, '');
-                
-                if (domain.includes('.') && domain.length >= 4 && /^[a-z0-9][-a-z0-9.]*[a-z0-9]$/.test(domain)) {
-                    shops.add(`https://${domain}`);
+            // Remove any inline comments
+            const cleanLine = line.split('#')[0].trim();
+            
+            if (cleanLine) {
+                // If line doesn't start with http:// or https://, add https://
+                let shopUrl = cleanLine;
+                if (!shopUrl.startsWith('http://') && !shopUrl.startsWith('https://')) {
+                    shopUrl = `https://${shopUrl}`;
                 }
+                
+                shops.push(shopUrl);
+                console.log(`Added shop ${i+1}: ${shopUrl}`);
             }
         }
         
-        return Array.from(shops);
+        console.log(`Total shops loaded: ${shops.length}`);
+        return shops;
     } catch (error) {
+        console.error('Error loading shops:', error);
         return [];
     }
 }
@@ -323,10 +338,10 @@ function getRandomProfile() {
 
 // Check card on shop
 async function checkCardOnShop(card, shopUrl, proxy = null, userData) {
-    const shopDomain = new URL(shopUrl).hostname;
-    
     try {
+        const shopDomain = new URL(shopUrl).hostname;
         const cardObj = parseCard(card);
+        
         if (!cardObj) {
             return { status: 'ERROR', message: 'Invalid card format', shop: shopDomain, card: card };
         }
@@ -384,6 +399,8 @@ async function checkCardOnShop(card, shopUrl, proxy = null, userData) {
         };
         
     } catch (error) {
+        // If URL parsing fails, use shopUrl as-is
+        const shopDomain = shopUrl.replace(/^https?:\/\//, '').split('/')[0];
         return {
             status: 'ERROR',
             message: error.message || 'Exception occurred',
@@ -633,6 +650,7 @@ bot.onText(/\/start/, async (msg) => {
     const chatId = msg.chat.id;
     const userId = msg.from.id;
     const userData = new UserData(userId);
+    const shops = loadShops();
     
     const message = `🛒 SHOPIFY CARD CHECKER BOT 🛒
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -665,7 +683,7 @@ cc|mm|yyyy|cvv or cc|mm|yy|cvv
 /stop - Stop running check
 
 📊 Info:
-• Shops: ${loadShops().length}
+• Shops: ${shops.length}
 • Proxies: ${userData.proxies.length}
 • Max cards/file: 5000`;
     
@@ -692,7 +710,7 @@ bot.onText(/\/sh (.+)/, async (msg, match) => {
     
     const shops = loadShops();
     if (shops.length === 0) {
-        await bot.sendMessage(chatId, '❌ No shops available!');
+        await bot.sendMessage(chatId, '❌ No shops available! Add shops to data/shops.txt');
         return;
     }
     
