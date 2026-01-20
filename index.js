@@ -28,8 +28,8 @@ import queries from './queries.js';
 //                              📱 TELEGRAM CONFIG
 // ══════════════════════════════════════════════════════════════════════════════
 
-// Replace with your bot token from @BotFather
-const BOT_TOKEN = '7897881067:AAGtIALiwvv7ogvkLmhf-b3UF-WpLwxTrgw';
+// Replace with your NEW bot token from @BotFather
+const BOT_TOKEN = '7417431428:AAFLCJJfxevYGL5UrOZ7CQK0l-1KuJ2f8mQ'; // Replace this with your actual new token
 
 // ══════════════════════════════════════════════════════════════════════════════
 //                              📊 DATABASE & STORAGE
@@ -621,19 +621,40 @@ async function processFileCheck(chatId, userData, cards, messageId) {
 //                              🤖 TELEGRAM BOT INITIALIZATION
 // ══════════════════════════════════════════════════════════════════════════════
 
+let bot;
+
 async function initializeBot() {
     console.log('🤖 Initializing Telegram Bot...');
     
+    // FIRST: Validate the token format
+    if (!BOT_TOKEN || BOT_TOKEN === 'YOUR_NEW_BOT_TOKEN_HERE') {
+        console.error('❌ ERROR: Bot token is not set!');
+        console.error('Please replace BOT_TOKEN with your actual bot token');
+        console.error('Format: 1234567890:ABCdefGHIjklMNOpqrSTUvwxYZ');
+        process.exit(1);
+    }
+    
+    // Check token format
+    const tokenParts = BOT_TOKEN.split(':');
+    if (tokenParts.length !== 2 || tokenParts[0].length < 5 || !/^\d+$/.test(tokenParts[0])) {
+        console.error('❌ ERROR: Invalid bot token format!');
+        console.error('Token should be in format: 1234567890:ABCdefGHIjklMNOpqrSTUvwxYZ');
+        process.exit(1);
+    }
+    
+    console.log(`✅ Token format looks valid (User ID: ${tokenParts[0]})`);
+    
     try {
-        // Create bot instance WITHOUT auto-polling
-        const bot = new TelegramBot(BOT_TOKEN);
+        // Create bot instance WITHOUT polling
+        bot = new TelegramBot(BOT_TOKEN);
         
         // Test the token by making a simple API call
-        console.log('🔍 Testing bot token...');
+        console.log('🔍 Testing bot connection...');
         const me = await bot.getMe();
-        console.log(`✅ Bot initialized: @${me.username} (${me.first_name})`);
+        console.log(`✅ Bot connected: @${me.username} (${me.first_name})`);
         
-        // Now start polling manually
+        // Now start polling
+        console.log('🔄 Starting polling...');
         bot.startPolling({
             polling: {
                 interval: 300,
@@ -642,13 +663,16 @@ async function initializeBot() {
             }
         });
         
-        console.log('✅ Bot polling started');
+        console.log('✅ Bot is now polling for messages');
         return bot;
     } catch (error) {
         console.error('❌ Failed to initialize bot:', error.message);
         if (error.response && error.response.statusCode === 401) {
-            console.error('❌ Bot token is invalid or has been revoked!');
-            console.error('Please get a new token from @BotFather on Telegram');
+            console.error('❌ 401 Unauthorized: Bot token is invalid or has been revoked!');
+            console.error('Please:');
+            console.error('1. Go to @BotFather on Telegram');
+            console.error('2. Create a new bot or use /token to get token');
+            console.error('3. Update BOT_TOKEN in the code');
         }
         process.exit(1);
     }
@@ -658,7 +682,7 @@ async function initializeBot() {
 //                              🤖 TELEGRAM BOT HANDLERS
 // ══════════════════════════════════════════════════════════════════════════════
 
-async function setupBotHandlers(bot) {
+function setupBotHandlers(bot) {
     // /start command
     bot.onText(/\/start/, async (msg) => {
         const chatId = msg.chat.id;
@@ -993,7 +1017,7 @@ Example:
     // Error handling
     bot.on('polling_error', (error) => {
         console.error('Polling error:', error.message);
-        // Don't exit, just log the error
+        // If it's a 401 error, the bot will stop automatically
     });
 
     bot.on('error', (error) => {
@@ -1007,24 +1031,33 @@ Example:
 
 async function main() {
     console.log('🚀 Starting Shopify Card Checker Bot...');
+    console.log('========================================');
     
     // Load shops first
     const shops = loadShops();
     console.log(`📊 Loaded ${shops.length} shops from shops.txt`);
     
     // Initialize bot
-    const bot = await initializeBot();
+    try {
+        bot = await initializeBot();
+    } catch (error) {
+        console.error('❌ Failed to start bot:', error.message);
+        process.exit(1);
+    }
     
     // Setup bot handlers
-    await setupBotHandlers(bot);
+    setupBotHandlers(bot);
     
     console.log('✅ Bot is ready and listening for commands!');
     console.log('📱 Use /start in Telegram to begin');
+    console.log('========================================');
     
     // Keep the process alive
     process.on('SIGINT', () => {
-        console.log('👋 Shutting down bot...');
-        bot.stopPolling();
+        console.log('\n👋 Shutting down bot...');
+        if (bot && bot.stopPolling) {
+            bot.stopPolling();
+        }
         process.exit(0);
     });
 }
