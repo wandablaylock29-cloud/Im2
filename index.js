@@ -30,7 +30,7 @@ import queries from './queries.js';
 // ══════════════════════════════════════════════════════════════════════════════
 
 // Replace with your bot token from @BotFather
-const BOT_TOKEN = '7897881067:AAEk1CL1e0qW_kQ9LSDu1gDL_rlXy5FKKiI';
+const BOT_TOKEN = '7897881067:AAGpF5mlRZ-MIHaCbqcT66hgoZ4jyQCt_dg';
 const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 
 // ══════════════════════════════════════════════════════════════════════════════
