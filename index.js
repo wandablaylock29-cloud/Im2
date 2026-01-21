@@ -3,7 +3,8 @@
 /**
  * Shopify Mass Checker Telegram Bot
  * Uses ALL existing modules: site.js, browserCaptchaSolver.js, addresses.js, 
- * phoneGenerator.js, userAgent.js, hCaptchaSolver.js, queries.js
+ * phoneGenerator.js, userAgent.js, queries.js
+ * Note: hCaptchaSolver.js removed as requested - using BrowserCaptchaSolver.js instead
  */
 
 import TelegramBot from 'node-telegram-bot-api';
@@ -15,21 +16,20 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Import ALL your modules
+// Import your modules
 import ShopifyCheckout from './site.js';
 import BrowserCaptchaSolver from './browserCaptchaSolver.js';
 import { getRandomAddress, getAddressByCountry, addressesByCountry } from './addresses.js';
 import { generatePhone } from './phoneGenerator.js';
 import UserAgent from './userAgent.js';
-import HCaptchaSolver from './hCaptchaSolver.js';
 import queries from './queries.js';
 
 // ══════════════════════════════════════════════════════════════════════════════
 //                              📱 TELEGRAM CONFIG
 // ══════════════════════════════════════════════════════════════════════════════
 
-// Replace with your NEW bot token from @BotFather
-const BOT_TOKEN = '7417431428:AAECa_XoLk4babl9qCjVM0bP7xt6RUWpHow'; // Replace this with your actual new token
+// Your bot token
+const BOT_TOKEN = '7417431428:AAFLCJJfxevYGL5UrOZ7CQK0l-1KuJ2f8mQ';
 
 // ══════════════════════════════════════════════════════════════════════════════
 //                              📊 DATABASE & STORAGE
@@ -433,26 +433,20 @@ async function checkCardWithRetry(card, shops, userData) {
     };
 }
 
-// Format results - FIXED: Properly escape Markdown special characters
+// Format results
 function formatChargedResult(result) {
     const binInfo = getBINInfo(result.card.split('|')[0]);
     
-    // Escape special characters for Markdown
-    const safeCard = result.card.replace(/_/g, '\\_').replace(/\*/g, '\\*').replace(/\[/g, '\\[').replace(/\]/g, '\\]');
-    const safeShop = result.shop.replace(/_/g, '\\_').replace(/\*/g, '\\*').replace(/\[/g, '\\[').replace(/\]/g, '\\]');
-    const safeEmail = result.email.replace(/_/g, '\\_').replace(/\*/g, '\\*').replace(/\[/g, '\\[').replace(/\]/g, '\\]');
-    const safeBrand = binInfo.brand.replace(/_/g, '\\_').replace(/\*/g, '\\*').replace(/\[/g, '\\[').replace(/\]/g, '\\]');
-    
-    return `✅ CHARGED\\!
+    return `✅ CHARGED!
 ━━━━━━━━━━━━━━━━━━━━━━
-💳 \`${safeCard}\`
-🏪 ${safeShop}
+💳 ${result.card}
+🏪 ${result.shop}
 💰 ${result.amount} USD
-📧 ${safeEmail}
+📧 ${result.email}
 
 🏦 BIN Info:
-   • Brand: ${safeBrand}
-   • Type: ${binInfo.type} \\| Level: ${binInfo.level}
+   • Brand: ${binInfo.brand}
+   • Type: ${binInfo.type} | Level: ${binInfo.level}
    • Country: ${binInfo.country}
 ━━━━━━━━━━━━━━━━━━━━━━`;
 }
@@ -465,10 +459,7 @@ function formatCheckResult(result) {
         'ERROR': '⚠️'
     };
     
-    const safeCard = result.card.replace(/_/g, '\\_').replace(/\*/g, '\\*').replace(/\[/g, '\\[').replace(/\]/g, '\\]');
-    const safeMessage = result.message.replace(/_/g, '\\_').replace(/\*/g, '\\*').replace(/\[/g, '\\[').replace(/\]/g, '\\]');
-    
-    return `${icons[result.status] || '📝'} ${result.status} → ${safeCard.substring(0, 8)}\\*** → ${safeMessage}`;
+    return `${icons[result.status] || '📝'} ${result.status} → ${result.card.substring(0, 8)}*** → ${result.message}`;
 }
 
 // Progress bar
@@ -486,7 +477,7 @@ function formatTime(seconds) {
     return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 }
 
-// Send progress update - FIXED: Escape Markdown special characters
+// Send progress update
 async function sendProgressUpdate(chatId, messageId, stats, total, current, startTime, userData) {
     const percentage = (current / total) * 100;
     const elapsed = (Date.now() - startTime) / 1000;
@@ -494,15 +485,15 @@ async function sendProgressUpdate(chatId, messageId, stats, total, current, star
     const eta = total > current ? ((total - current) / speed) * 60 : 0;
     
     const progressBar = createProgressBar(percentage);
-    const message = `⏳ CHECKING\\.\\.\\.
+    const message = `⏳ CHECKING...
 ━━━━━━━━━━━━━━━━━━━━━━
 
-\\[${progressBar}\\] ${percentage.toFixed(1)}%
-📊 ${current} / ${total} \\(${percentage.toFixed(1)}%\\)
+[${progressBar}] ${percentage.toFixed(1)}%
+📊 ${current} / ${total} (${percentage.toFixed(1)}%)
 
 ⚡ Speed: ${speed.toFixed(1)}/min
-⏱️ Time: ${formatTime(elapsed)} \\| ETA: ${formatTime(eta)}
-🔌 Proxies: ${userData.proxies.length} \\| Concurrent: ${userData.concurrentChecks}
+⏱️ Time: ${formatTime(elapsed)} | ETA: ${formatTime(eta)}
+🔌 Proxies: ${userData.proxies.length} | Concurrent: ${userData.concurrentChecks}
 
 ┌─────────────────────┐
 │ ✅ CHG:    ${stats.charged.toString().padStart(4)}  🔐 3DS:    ${stats['3ds'].toString().padStart(4)} │
@@ -514,10 +505,10 @@ async function sendProgressUpdate(chatId, messageId, stats, total, current, star
             await bot.editMessageText(message, {
                 chat_id: chatId,
                 message_id: messageId,
-                parse_mode: 'MarkdownV2'
+                parse_mode: 'Markdown'
             });
         } else {
-            const sent = await bot.sendMessage(chatId, message, { parse_mode: 'MarkdownV2' });
+            const sent = await bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
             return sent.message_id;
         }
     } catch (e) {
@@ -534,12 +525,12 @@ async function processFileCheck(chatId, userData, cards, messageId) {
     const totalCards = cards.length;
     
     if (shops.length === 0) {
-        await bot.sendMessage(chatId, '❌ No shops available! Add shops to shops.txt file in the same directory.', { parse_mode: 'MarkdownV2' });
+        await bot.sendMessage(chatId, '❌ No shops available! Add shops to shops.txt file in the same directory.');
         return;
     }
     
     if (totalCards > 5000) {
-        await bot.sendMessage(chatId, '❌ Maximum 5000 cards per file!', { parse_mode: 'MarkdownV2' });
+        await bot.sendMessage(chatId, '❌ Maximum 5000 cards per file!');
         return;
     }
     
@@ -582,7 +573,7 @@ async function processFileCheck(chatId, userData, cards, messageId) {
             else globalStats.error++;
             
             if (result.status === 'CHARGED') {
-                await bot.sendMessage(chatId, formatChargedResult(result), { parse_mode: 'MarkdownV2' });
+                await bot.sendMessage(chatId, formatChargedResult(result), { parse_mode: 'Markdown' });
             }
         }
         
@@ -611,7 +602,7 @@ async function processFileCheck(chatId, userData, cards, messageId) {
         userData
     );
     
-    const finalMessage = `✅ CHECK COMPLETE\\!
+    const finalMessage = `✅ CHECK COMPLETE!
 ━━━━━━━━━━━━━━━━━━━━━━
 📊 Results:
 ✅ Charged: ${sessionStats.charged}
@@ -621,7 +612,7 @@ async function processFileCheck(chatId, userData, cards, messageId) {
 
 ⏱️ Total time: ${formatTime((Date.now() - startTime) / 1000)}`;
     
-    await bot.sendMessage(chatId, finalMessage, { parse_mode: 'MarkdownV2' });
+    await bot.sendMessage(chatId, finalMessage, { parse_mode: 'Markdown' });
     
     activeChecks.delete(sessionId);
 }
@@ -635,7 +626,7 @@ let bot;
 async function initializeBot() {
     console.log('🤖 Initializing Telegram Bot...');
     
-    // FIRST: Validate the token format
+    // Validate the token format
     if (!BOT_TOKEN || BOT_TOKEN === 'YOUR_NEW_BOT_TOKEN_HERE') {
         console.error('❌ ERROR: Bot token is not set!');
         console.error('Please replace BOT_TOKEN with your actual bot token');
@@ -654,7 +645,7 @@ async function initializeBot() {
     console.log(`✅ Token format looks valid (User ID: ${tokenParts[0]})`);
     
     try {
-        // Create bot instance WITHOUT polling
+        // Create bot instance
         bot = new TelegramBot(BOT_TOKEN);
         
         // Test the token by making a simple API call
@@ -692,7 +683,7 @@ async function initializeBot() {
 // ══════════════════════════════════════════════════════════════════════════════
 
 function setupBotHandlers(bot) {
-    // /start command - FIXED: Escape Markdown special characters
+    // /start command
     bot.onText(/\/start/, async (msg) => {
         const chatId = msg.chat.id;
         const userId = msg.from.id;
@@ -702,7 +693,7 @@ function setupBotHandlers(bot) {
         const message = `🛒 SHOPIFY CARD CHECKER BOT 🛒
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Hello ${msg.from.first_name || 'User'} \\! 👋
+Hello ${msg.from.first_name || 'User'}! 👋
 
 👤 Your Info:
 • User ID: ${userId}
@@ -710,31 +701,31 @@ Hello ${msg.from.first_name || 'User'} \\! 👋
 • ${userData.allowed ? '✅ Allowed' : '❌ Blocked'}
 • ${userData.proxies.length > 0 ? '✅ Custom proxies' : '🌐 No proxies'}
 
-This bot helps you check credit cards via Shopify\\.
+This bot helps you check credit cards via Shopify.
 
 📋 How to use:
-• /sh cc\\|mm\\|yyyy\\|cvv \\- Check 1 card
-• Send \\\\.txt file \\- Check multiple cards
+• /sh cc|mm|yyyy|cvv - Check 1 card
+• Send .txt file - Check multiple cards
 
 📝 Card format:
-cc\\|mm\\|yyyy\\|cvv or cc\\|mm\\|yy\\|cvv
+cc|mm|yyyy|cvv or cc|mm|yy|cvv
 
 🔧 Commands:
-/sh card \\- Quick check 1 card
-/fsh \\- Reply to file then type /fsh to check
-/mystats \\- View your stats 📊
-/history \\- View last 10 checks 📜
-/myproxy \\- Manage your proxies 🔌
-/status \\- Bot status
-/stats \\- Total statistics
-/stop \\- Stop running check
+/sh card - Quick check 1 card
+/fsh - Reply to file then type /fsh to check
+/mystats - View your stats 📊
+/history - View last 10 checks 📜
+/myproxy - Manage your proxies 🔌
+/status - Bot status
+/stats - Total statistics
+/stop - Stop running check
 
 📊 Info:
 • Shops: ${shops.length}
 • Proxies: ${userData.proxies.length}
 • Max cards/file: 5000`;
         
-        await bot.sendMessage(chatId, message, { parse_mode: 'MarkdownV2' });
+        await bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
     });
 
     // /sh command - single card check
@@ -744,24 +735,24 @@ cc\\|mm\\|yyyy\\|cvv or cc\\|mm\\|yy\\|cvv
         const userData = new UserData(userId);
         
         if (!userData.allowed) {
-            await bot.sendMessage(chatId, '❌ You are not allowed to use this bot!', { parse_mode: 'MarkdownV2' });
+            await bot.sendMessage(chatId, '❌ You are not allowed to use this bot!');
             return;
         }
         
         const cardString = match[1].trim();
         
         if (isCardExpired(cardString)) {
-            await bot.sendMessage(chatId, '❌ Card is expired!', { parse_mode: 'MarkdownV2' });
+            await bot.sendMessage(chatId, '❌ Card is expired!');
             return;
         }
         
         const shops = loadShops();
         if (shops.length === 0) {
-            await bot.sendMessage(chatId, '❌ No shops available! Add shops to shops.txt file in the same directory.', { parse_mode: 'MarkdownV2' });
+            await bot.sendMessage(chatId, '❌ No shops available! Add shops to shops.txt file in the same directory.');
             return;
         }
         
-        const checkingMsg = await bot.sendMessage(chatId, '⏳ Checking card\\.\\.\\.', { parse_mode: 'MarkdownV2' });
+        const checkingMsg = await bot.sendMessage(chatId, '⏳ Checking card...', { parse_mode: 'Markdown' });
         
         try {
             const result = await checkCardWithRetry(cardString, shops, userData);
@@ -777,20 +768,19 @@ cc\\|mm\\|yyyy\\|cvv or cc\\|mm\\|yy\\|cvv
                 await bot.editMessageText(formatChargedResult(result), {
                     chat_id: chatId,
                     message_id: checkingMsg.message_id,
-                    parse_mode: 'MarkdownV2'
+                    parse_mode: 'Markdown'
                 });
             } else {
                 await bot.editMessageText(formatCheckResult(result), {
                     chat_id: chatId,
                     message_id: checkingMsg.message_id,
-                    parse_mode: 'MarkdownV2'
+                    parse_mode: 'Markdown'
                 });
             }
         } catch (error) {
-            await bot.editMessageText(`❌ Error: ${error.message.replace(/_/g, '\\_').replace(/\*/g, '\\*').replace(/\[/g, '\\[').replace(/\]/g, '\\]')}`, {
+            await bot.editMessageText(`❌ Error: ${error.message}`, {
                 chat_id: chatId,
-                message_id: checkingMsg.message_id,
-                parse_mode: 'MarkdownV2'
+                message_id: checkingMsg.message_id
             });
         }
     });
@@ -804,7 +794,7 @@ cc\\|mm\\|yyyy\\|cvv or cc\\|mm\\|yy\\|cvv
         const userData = new UserData(userId);
         
         if (!userData.allowed) {
-            await bot.sendMessage(chatId, '❌ You are not allowed to use this bot!', { parse_mode: 'MarkdownV2' });
+            await bot.sendMessage(chatId, '❌ You are not allowed to use this bot!');
             return;
         }
         
@@ -815,7 +805,7 @@ cc\\|mm\\|yyyy\\|cvv or cc\\|mm\\|yy\\|cvv
                 timestamp: Date.now()
             });
             
-            await bot.sendMessage(chatId, '📄 File received\\! Type /fsh to start checking\\.', { parse_mode: 'MarkdownV2' });
+            await bot.sendMessage(chatId, '📄 File received! Type /fsh to start checking.', { parse_mode: 'Markdown' });
         }
     });
 
@@ -826,13 +816,13 @@ cc\\|mm\\|yyyy\\|cvv or cc\\|mm\\|yy\\|cvv
         const userData = new UserData(userId);
         
         if (!userData.allowed) {
-            await bot.sendMessage(chatId, '❌ You are not allowed to use this bot!', { parse_mode: 'MarkdownV2' });
+            await bot.sendMessage(chatId, '❌ You are not allowed to use this bot!');
             return;
         }
         
         const fileHandler = fileHandlers.get(chatId);
         if (!fileHandler || Date.now() - fileHandler.timestamp > 300000) {
-            await bot.sendMessage(chatId, '❌ No recent file found\\! Send a \\\\.txt file first\\.', { parse_mode: 'MarkdownV2' });
+            await bot.sendMessage(chatId, '❌ No recent file found! Send a .txt file first.');
             return;
         }
         
@@ -847,21 +837,21 @@ cc\\|mm\\|yyyy\\|cvv or cc\\|mm\\|yy\\|cvv
                 .filter(card => !isCardExpired(card));
             
             if (cards.length === 0) {
-                await bot.sendMessage(chatId, '❌ No valid cards found in file!', { parse_mode: 'MarkdownV2' });
+                await bot.sendMessage(chatId, '❌ No valid cards found in file!');
                 return;
             }
             
-            const startMsg = await bot.sendMessage(chatId, `📊 Found ${cards.length} valid cards\\. Starting check\\.\\.\\.`, { parse_mode: 'MarkdownV2' });
+            const startMsg = await bot.sendMessage(chatId, `📊 Found ${cards.length} valid cards. Starting check...`, { parse_mode: 'Markdown' });
             
             await processFileCheck(chatId, userData, cards, startMsg.message_id);
             
             fileHandlers.delete(chatId);
         } catch (error) {
-            await bot.sendMessage(chatId, `❌ Error processing file: ${error.message.replace(/_/g, '\\_').replace(/\*/g, '\\*').replace(/\[/g, '\\[').replace(/\]/g, '\\]')}`, { parse_mode: 'MarkdownV2' });
+            await bot.sendMessage(chatId, `❌ Error processing file: ${error.message}`);
         }
     });
 
-    // /myproxy command - FIXED: Escape Markdown
+    // /myproxy command
     bot.onText(/\/myproxy/, async (msg) => {
         const chatId = msg.chat.id;
         const userId = msg.from.id;
@@ -869,19 +859,19 @@ cc\\|mm\\|yyyy\\|cvv or cc\\|mm\\|yy\\|cvv
         
         const message = `🔌 Your Proxies
 ━━━━━━━━━━━━━━━━━━━━━━
-• Proxies: ${userData.proxies.length} ${userData.proxies.length > 0 ? '\\(custom\\)' : '\\(none\\)'}
-• Concurrent: ${userData.concurrentChecks} \\(auto\\)
+• Proxies: ${userData.proxies.length} ${userData.proxies.length > 0 ? '(custom)' : '(none)'}
+• Concurrent: ${userData.concurrentChecks} (auto)
 
 Commands:
-/myproxyadd \\<proxy\\> \\- Add single proxy
-/myproxyadd \\(multiline\\) \\- Add multiple proxies
-/myproxy reload \\- Reload from database
-/myproxy clear \\- Delete all
+/myproxyadd <proxy> - Add single proxy
+/myproxyadd (multiline) - Add multiple proxies
+/myproxy reload - Reload from database
+/myproxy clear - Delete all
 
 Example:
-/myproxyadd dc\\.decodo\\.com:10000:user:pass`;
+/myproxyadd dc.decodo.com:10000:user:pass`;
         
-        await bot.sendMessage(chatId, message, { parse_mode: 'MarkdownV2' });
+        await bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
     });
 
     // /myproxyadd command
@@ -893,7 +883,7 @@ Example:
         const proxiesText = match[1].trim();
         const added = userData.addProxies(proxiesText);
         
-        await bot.sendMessage(chatId, `✅ Added ${added} proxies\\. Total: ${userData.proxies.length}`, { parse_mode: 'MarkdownV2' });
+        await bot.sendMessage(chatId, `✅ Added ${added} proxies. Total: ${userData.proxies.length}`, { parse_mode: 'Markdown' });
     });
 
     // /myproxy reload
@@ -903,7 +893,7 @@ Example:
         const userData = new UserData(userId);
         
         const count = userData.reloadProxies();
-        await bot.sendMessage(chatId, `✅ Reloaded ${count} proxies from database\\.`, { parse_mode: 'MarkdownV2' });
+        await bot.sendMessage(chatId, `✅ Reloaded ${count} proxies from database.`, { parse_mode: 'Markdown' });
     });
 
     // /myproxy clear
@@ -913,10 +903,10 @@ Example:
         const userData = new UserData(userId);
         
         const count = userData.clearProxies();
-        await bot.sendMessage(chatId, `✅ Cleared ${count} proxies\\.`, { parse_mode: 'MarkdownV2' });
+        await bot.sendMessage(chatId, `✅ Cleared ${count} proxies.`, { parse_mode: 'Markdown' });
     });
 
-    // /mystats command - FIXED: Escape Markdown
+    // /mystats command
     bot.onText(/\/mystats/, async (msg) => {
         const chatId = msg.chat.id;
         const userId = msg.from.id;
@@ -931,19 +921,19 @@ Example:
 • ⚠️ Error: ${userData.stats.error}
 
 • Proxies: ${userData.proxies.length}
-• Last Check: ${userData.stats.lastCheck ? new Date(userData.stats.lastCheck).toLocaleString().replace(/_/g, '\\_') : 'Never'}`;
+• Last Check: ${userData.stats.lastCheck ? new Date(userData.stats.lastCheck).toLocaleString() : 'Never'}`;
         
-        await bot.sendMessage(chatId, message, { parse_mode: 'MarkdownV2' });
+        await bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
     });
 
-    // /history command - FIXED: Escape Markdown
+    // /history command
     bot.onText(/\/history/, async (msg) => {
         const chatId = msg.chat.id;
         const userId = msg.from.id;
         const userData = new UserData(userId);
         
         if (userData.history.length === 0) {
-            await bot.sendMessage(chatId, '📜 No history found\\.', { parse_mode: 'MarkdownV2' });
+            await bot.sendMessage(chatId, '📜 No history found.');
             return;
         }
         
@@ -955,18 +945,14 @@ Example:
                          check.status === '3DS' ? '🔐' : 
                          check.status === 'DECLINED' ? '❌' : '⚠️';
             const time = new Date(check.timestamp).toLocaleTimeString();
-            const safeCard = check.card.replace(/_/g, '\\_').replace(/\*/g, '\\*').replace(/\[/g, '\\[').replace(/\]/g, '\\]');
-            const safeShop = check.shop.replace(/_/g, '\\_').replace(/\*/g, '\\*').replace(/\[/g, '\\[').replace(/\]/g, '\\]');
-            const safeAmount = check.amount.replace(/_/g, '\\_').replace(/\*/g, '\\*').replace(/\[/g, '\\[').replace(/\]/g, '\\]');
-            
-            message += `${icon} ${time} \\- ${safeCard} \\- ${check.status}\n`;
-            message += `   Shop: ${safeShop} \\| Amount: ${safeAmount}\n\n`;
+            message += `${icon} ${time} - ${check.card} - ${check.status}\n`;
+            message += `   Shop: ${check.shop} | Amount: ${check.amount}\n\n`;
         }
         
-        await bot.sendMessage(chatId, message, { parse_mode: 'MarkdownV2' });
+        await bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
     });
 
-    // /status command - FIXED: Escape Markdown
+    // /status command
     bot.onText(/\/status/, async (msg) => {
         const chatId = msg.chat.id;
         const shops = loadShops();
@@ -986,10 +972,10 @@ Example:
             return fs.existsSync(proxyFile) ? fs.readFileSync(proxyFile, 'utf8').split('\n').filter(p => p) : [];
         }))).length}`;
         
-        await bot.sendMessage(chatId, message, { parse_mode: 'MarkdownV2' });
+        await bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
     });
 
-    // /stats command - FIXED: Escape Markdown
+    // /stats command
     bot.onText(/\/stats/, async (msg) => {
         const chatId = msg.chat.id;
         
@@ -1005,10 +991,10 @@ Example:
 • Active Users: ${globalStats.activeUsers}
 • Available Shops: ${globalStats.shops}`;
         
-        await bot.sendMessage(chatId, message, { parse_mode: 'MarkdownV2' });
+        await bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
     });
 
-    // /stop command - FIXED: Escape Markdown
+    // /stop command
     bot.onText(/\/stop/, async (msg) => {
         const chatId = msg.chat.id;
         const userId = msg.from.id;
@@ -1022,16 +1008,15 @@ Example:
         }
         
         if (stopped > 0) {
-            await bot.sendMessage(chatId, `🛑 Stopped ${stopped} running check\\(s\\)\\.`, { parse_mode: 'MarkdownV2' });
+            await bot.sendMessage(chatId, `🛑 Stopped ${stopped} running check(s).`);
         } else {
-            await bot.sendMessage(chatId, 'ℹ️ No active checks to stop\\.', { parse_mode: 'MarkdownV2' });
+            await bot.sendMessage(chatId, 'ℹ️ No active checks to stop.');
         }
     });
 
     // Error handling
     bot.on('polling_error', (error) => {
         console.error('Polling error:', error.message);
-        // If it's a 401 error, the bot will stop automatically
     });
 
     bot.on('error', (error) => {
