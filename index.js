@@ -29,7 +29,7 @@ import queries from './queries.js';
 // ══════════════════════════════════════════════════════════════════════════════
 
 // Replace with your NEW bot token from @BotFather
-const BOT_TOKEN = '7417431428:AAEvvR9kuezWlvL0KKf6X7ZMe9vm227akg4'; // Replace this with your actual new token
+const BOT_TOKEN = '7417431428:AAECa_XoLk4babl9qCjVM0bP7xt6RUWpHow'; // Replace this with your actual new token
 
 // ══════════════════════════════════════════════════════════════════════════════
 //                              📊 DATABASE & STORAGE
